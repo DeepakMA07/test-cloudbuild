@@ -19,7 +19,7 @@ variable "github_repo_name" {
 variable "branch_map" {
   type = map
   default = {
-    "Hadoop_GCP_Migration" = "^main$",
+    "ml-console-dev" = "^master$",
     "Hadoop_GCP_Migration" = "^test$"
     # "sample" = "^sample$"
   }
