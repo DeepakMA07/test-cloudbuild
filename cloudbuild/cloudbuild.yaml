@@ -1,0 +1,72 @@
+steps:
+- id: "gsutil command"
+  name: gcr.io/cloud-builders/gsutil
+  entrypoint: sh
+  args:
+    - '-c'
+    - |
+      # Checking if the remote backend bucket already exists using gsutil ls -b command
+      export remote_backend_bucket=$(gsutil ls -b gs://*-terraform-hg/)
+
+      # appending the variable value to file in path /workspace (accessible to all steps)
+      env | grep remote_backend_bucket >> /workspace/build_vars
+    
+- id: 'initialize terraform backend'
+  name: 'hashicorp/terraform:1.0.0'
+  entrypoint: sh
+  args:
+  - '-c'
+  - |
+      source /workspace/build_vars
+
+      # checking if remote_backend_bucket value is empty or null
+      if [[ -z $remote_backend_bucket ]]
+      then
+        cd hg-segmentation/wisdb/Infra/remote_backend 
+        terraform init
+        terraform plan -var="project_id=${PROJECT_ID}" -var="project_number=${PROJECT_NUMBER}";
+        terraform apply -var="project_id=${PROJECT_ID}" -var="project_number=${PROJECT_NUMBER}" -auto-approve ;
+        terraform destroy -var="project_id=${PROJECT_ID}" -var="project_number=${PROJECT_NUMBER}" -auto-approve ;
+      else
+         echo "Backend Bucket Exists!"
+      fi
+
+
+- id: 'tf init'
+  name: 'hashicorp/terraform:1.0.0'
+  entrypoint: 'sh'
+  args:
+  - '-c'
+  - |
+      cd hg-segmentation/wisdb/Infra || exit 1
+      terraform init -backend-config "bucket=${PROJECT_ID}-terraform-hg" || exit 1
+
+- id: 'tf plan'
+  name: 'hashicorp/terraform:1.0.0'
+  entrypoint: 'sh'
+  args:
+  - '-c'
+  - |
+      cd hg-segmentation/wisdb/Infra || exit 1
+      terraform refresh -var="project_id=${PROJECT_ID}" -var="project_number=${PROJECT_NUMBER}"
+      terraform plan -var="project_id=${PROJECT_ID}" -var="project_number=${PROJECT_NUMBER}" || exit 1
+
+
+- id: 'tf apply'
+  name: 'hashicorp/terraform:1.0.0'
+  entrypoint: 'sh'
+  args:
+  - '-c'
+  - |
+      cd hg-segmentation/wisdb/Infra || exit 1
+      terraform apply -var="project_id=${PROJECT_ID}" -var="project_number=${PROJECT_NUMBER}" -auto-approve  || exit 1
+
+
+# - id: 'tf destroy'
+#   name: 'hashicorp/terraform:1.0.0'
+#   entrypoint: 'sh'
+#   args:
+#   - '-c'
+#   - |
+#       cd hg-segmentation/wisdb/Infra || exit 1
+#       terraform destroy -var="project_id=${PROJECT_ID}" -var="project_number=${PROJECT_NUMBER}" -auto-approve  || exit 1
